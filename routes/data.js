@@ -5,7 +5,6 @@ const express = require("express");
 const routes = express.Router();
 
 routes.get("/", (req, res, next) => {
-  // Make a request for a user with a given ID
   axios
     .get(
       "https://www.szakkatalogus.hu/telepules/Gy%C5%91r%C3%BAjbar%C3%A1t?lap=0",
@@ -54,8 +53,6 @@ routes.get("/", (req, res, next) => {
               companyData.dataLength = pageLinks.length;
               res.json(companyData);
             }
-
-            //if ((i = pageLinks.length)) console.log(companyData);
           })
           .catch((error) => {
             console.log(error);
@@ -63,7 +60,6 @@ routes.get("/", (req, res, next) => {
       }
     })
     .catch(function (error) {
-      // handle error
       console.log(error);
     });
 });
