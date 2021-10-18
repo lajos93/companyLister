@@ -1,0 +1,26 @@
+{
+  "name": "companylister",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lajos93/companyLister.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lajos93/companyLister/issues"
+  },
+  "homepage": "https://github.com/lajos93/companyLister#readme",
+  "dependencies": {
+    "axios": "^0.23.0",
+    "cheerio": "^1.0.0-rc.10",
+    "express": "^4.17.1",
+    "https": "^1.0.0",
+    "nodemon": "^2.0.13"
+  }
+}
