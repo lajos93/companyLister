@@ -5,8 +5,15 @@ const fs = require("fs");
 const express = require("express");
 const routes = express.Router();
 
-routes.get("/", (req, res, next) => {
-  const fileName = "result.json";
+routes.get("/", (req, res) => {
+  res.json({ error: "No search parameters" });
+});
+
+routes.get("/:location", (req, res) => {
+  const request = req.params.location;
+  const capitalizedReq = request.charAt(0).toUpperCase() + request.slice(1);
+
+  const fileName = `${capitalizedReq}.json`;
   const isData = fs.existsSync(fileName);
 
   if (isData) {
@@ -14,8 +21,9 @@ routes.get("/", (req, res, next) => {
     const parsedData = JSON.parse(rawData);
     res.json(parsedData);
   } else {
-    mainSiteLink =
-      "https://www.szakkatalogus.hu/telepules/Gy%C5%91r%C3%BAjbar%C3%A1t?lap=0";
+    mainSiteLink = `https://www.szakkatalogus.hu/telepules/${encodeURI(
+      capitalizedReq
+    )}?lap=0`;
 
     axios
       .get(mainSiteLink, { responseType: "arraybuffer" })
@@ -39,10 +47,15 @@ routes.get("/", (req, res, next) => {
               extractURLs(paginationResp, pageLinks);
 
               if (pagination.length - 1 == p) {
-                extractSubDocDataHandle(pageLinks).then((finalRes) => {
-                  writeFile(fileName, finalRes);
-                  res.json(finalRes);
-                });
+                console.log(pageLinks);
+                processSubDocData(pageLinks)
+                  .then((finalRes) => {
+                    writeFile(fileName, finalRes);
+                    res.json(finalRes);
+                  })
+                  .catch((error) => {
+                    console.log(error);
+                  });
               }
             })
             .catch((error) => {
@@ -79,7 +92,9 @@ const extractURLs = (response, pageLinks) => {
 
     let pageLinkEscaped = encodeURI(pageLink)
       .replace(/%C3%BB/g, "%C5%B1")
-      .replace(/%C3%B5/g, "%C5%91");
+      .replace(/%C3%B5/g, "%C5%91")
+      .replace(/%C3%95/g, "%C5%90");
+
     pageLinks.push(`https://www.szakkatalogus.hu${pageLinkEscaped}`);
   });
 };
@@ -87,7 +102,7 @@ const extractURLs = (response, pageLinks) => {
 const extractSubDocData = (currentURL, response, currentCompanyOBJ) => {
   const $ = loadResponse(response);
 
-  let name = $("h1").text();
+  let name = $("h1").first().text();
   let url = null;
 
   $(".l").filter(function () {
@@ -123,20 +138,22 @@ const sortResults = (obj, dataLenght) => {
   return obj;
 };
 
-const extractSubDocDataHandle = (pageLinks) => {
+const processSubDocData = (pageLinks) => {
   let companyData = { data: [], dataLength: 0 };
+  const limitResults = pageLinks.length; //default: pageLinks.length
   return new Promise((resolve, reject) => {
-    for (let i = 0; i < pageLinks.length; i++) {
+    for (let i = 0; i < limitResults; i++) {
       axios
         .get(pageLinks[i], { responseType: "arraybuffer" })
         .then((resp) => {
+          console.log("inside", pageLinks[i], i);
           extractSubDocData(pageLinks[i], resp, companyData);
 
           //Reached the last item => display results
-          if (companyData.data.length == pageLinks.length) {
-            sortResults(companyData, pageLinks.length);
+          if (companyData.data.length == limitResults) {
+            sortResults(companyData, limitResults);
 
-            console.log(companyData);
+            console.log("Done");
             resolve(companyData);
           }
         })
