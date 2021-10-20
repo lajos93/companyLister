@@ -13,7 +13,7 @@ routes.get("/:location", (req, res) => {
   const request = req.params.location;
   const capitalizedReq = request.charAt(0).toUpperCase() + request.slice(1);
 
-  const fileName = `${capitalizedReq}.json`;
+  const fileName = `./results/${capitalizedReq}.json`;
   const isData = fs.existsSync(fileName);
 
   if (isData) {
@@ -30,13 +30,14 @@ routes.get("/:location", (req, res) => {
       .then(function (response) {
         //get page links
         let pagination = [];
-        extractPageLinks(response, pagination);
+        pagination = extractPageLinks(response);
 
         //define section links array
         let pageLinks = [];
+        pageLinks = extractURLs(response);
 
-        //get section URLS
-        extractURLs(response, pageLinks);
+        //push async item index inside to check if the last one is added
+        let indexes = [];
 
         //run through the remaining pages
         for (let p = 0; p < pagination.length; p++) {
@@ -44,10 +45,13 @@ routes.get("/:location", (req, res) => {
             .get(pagination[p], { responseType: "arraybuffer" })
             .then((paginationResp) => {
               //get section values
-              extractURLs(paginationResp, pageLinks);
 
-              if (pagination.length - 1 == p) {
-                console.log(pageLinks.length);
+              let updatedPageLinks = extractURLs(paginationResp);
+              pageLinks = [...pageLinks, ...updatedPageLinks];
+
+              indexes.push(p);
+
+              if (indexes.length == pagination.length) {
                 processSubDocData(pageLinks)
                   .then((finalRes) => {
                     writeFile(fileName, finalRes);
@@ -75,17 +79,23 @@ const loadResponse = (response) => {
 
 //Data extraction
 
-const extractPageLinks = (response, pagination) => {
+const extractPageLinks = (response) => {
   const $ = loadResponse(response);
+
+  let pagination = [];
 
   $(".lapozas a").each(function () {
     let paginationLinks = $(this).attr("href").replace(/http/g, "https");
     pagination.push(paginationLinks);
   });
+
+  return pagination;
 };
 
-const extractURLs = (response, pageLinks) => {
+const extractURLs = (response) => {
   const $ = loadResponse(response);
+
+  let pages = [];
 
   $(".box .ct a").each(function () {
     let pageLink = $(this).attr("href");
@@ -96,8 +106,9 @@ const extractURLs = (response, pageLinks) => {
       .replace(/%C3%95/g, "%C5%90")
       .replace(/%C3%9B/g, "%C5%B0");
 
-    pageLinks.push(`https://www.szakkatalogus.hu${pageLinkEscaped}`);
+    pages.push(`https://www.szakkatalogus.hu${pageLinkEscaped}`);
   });
+  return pages;
 };
 
 const extractSubDocData = (currentURL, response, currentCompanyOBJ) => {
