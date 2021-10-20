@@ -47,7 +47,7 @@ routes.get("/:location", (req, res) => {
               extractURLs(paginationResp, pageLinks);
 
               if (pagination.length - 1 == p) {
-                console.log(pageLinks);
+                console.log(pageLinks.length);
                 processSubDocData(pageLinks)
                   .then((finalRes) => {
                     writeFile(fileName, finalRes);
@@ -93,7 +93,8 @@ const extractURLs = (response, pageLinks) => {
     let pageLinkEscaped = encodeURI(pageLink)
       .replace(/%C3%BB/g, "%C5%B1")
       .replace(/%C3%B5/g, "%C5%91")
-      .replace(/%C3%95/g, "%C5%90");
+      .replace(/%C3%95/g, "%C5%90")
+      .replace(/%C3%9B/g, "%C5%B0");
 
     pageLinks.push(`https://www.szakkatalogus.hu${pageLinkEscaped}`);
   });
@@ -146,7 +147,7 @@ const processSubDocData = (pageLinks) => {
       axios
         .get(pageLinks[i], { responseType: "arraybuffer" })
         .then((resp) => {
-          console.log("inside", pageLinks[i], i);
+          console.log(i);
           extractSubDocData(pageLinks[i], resp, companyData);
 
           //Reached the last item => display results
