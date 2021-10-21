@@ -1,24 +1,24 @@
 const axios = require("axios");
-const cheerio = require("cheerio");
-const fs = require("fs");
 
 const express = require("express");
 const routes = express.Router();
 
+const tools = require("./../tools/tools");
+
 routes.get("/", (req, res) => {
-  res.json({ error: "No search parameters" });
+  const status = 404;
+  res.status(status).json({ error: "No search parameters", CODE: status });
 });
 
 routes.get("/:location", (req, res) => {
   const request = req.params.location;
-  const capitalizedReq = request.charAt(0).toUpperCase() + request.slice(1);
+  const capitalizedReq = tools.capitalizeReq(request);
 
-  const fileName = `./results/${capitalizedReq}.json`;
-  const isData = fs.existsSync(fileName);
+  const fileName = tools.setFilename(capitalizedReq);
+  const isData = tools.isData(fileName);
 
   if (isData) {
-    const rawData = fs.readFileSync(fileName);
-    const parsedData = JSON.parse(rawData);
+    const parsedData = tools.readData(fileName);
     res.json(parsedData);
   } else {
     mainSiteLink = `https://www.szakkatalogus.hu/telepules/${encodeURI(
@@ -30,13 +30,13 @@ routes.get("/:location", (req, res) => {
       .then(function (response) {
         //get page links
         let pagination = [];
-        pagination = extractPageLinks(response);
+        pagination = tools.extractPageLinks(response);
 
         //define section links array
         let pageLinks = [];
-        pageLinks = extractURLs(response);
+        pageLinks = tools.extractURLs(response);
 
-        //push async item index inside to check if the last one is added
+        //index array to check on the last item in the async for loop
         let indexes = [];
 
         //run through the remaining pages
@@ -46,15 +46,16 @@ routes.get("/:location", (req, res) => {
             .then((paginationResp) => {
               //get section values
 
-              let updatedPageLinks = extractURLs(paginationResp);
+              let updatedPageLinks = tools.extractURLs(paginationResp);
               pageLinks = [...pageLinks, ...updatedPageLinks];
 
               indexes.push(p);
 
               if (indexes.length == pagination.length) {
-                processSubDocData(pageLinks)
+                tools
+                  .processSubDocData(pageLinks)
                   .then((finalRes) => {
-                    writeFile(fileName, finalRes);
+                    tools.writeFile(fileName, finalRes);
                     res.json(finalRes);
                   })
                   .catch((error) => {
@@ -72,116 +73,5 @@ routes.get("/:location", (req, res) => {
       });
   }
 });
-
-const loadResponse = (response) => {
-  return cheerio.load(response.data.toString("latin1"));
-};
-
-//Data extraction
-
-const extractPageLinks = (response) => {
-  const $ = loadResponse(response);
-
-  let pagination = [];
-
-  $(".lapozas a").each(function () {
-    let paginationLinks = $(this).attr("href").replace(/http/g, "https");
-    pagination.push(paginationLinks);
-  });
-
-  return pagination;
-};
-
-const extractURLs = (response) => {
-  const $ = loadResponse(response);
-
-  let pages = [];
-
-  $(".box .ct a").each(function () {
-    let pageLink = $(this).attr("href");
-
-    let pageLinkEscaped = encodeURI(pageLink)
-      .replace(/%C3%BB/g, "%C5%B1")
-      .replace(/%C3%B5/g, "%C5%91")
-      .replace(/%C3%95/g, "%C5%90")
-      .replace(/%C3%9B/g, "%C5%B0");
-
-    pages.push(`https://www.szakkatalogus.hu${pageLinkEscaped}`);
-  });
-  return pages;
-};
-
-const extractSubDocData = (currentURL, response, currentCompanyOBJ) => {
-  const $ = loadResponse(response);
-
-  let name = $("h1").first().text();
-  let url = null;
-
-  $(".l").filter(function () {
-    let el = $(this).next();
-    let textValue = el.text();
-    let hasUrl = textValue.includes(".hu");
-
-    if (hasUrl) url = `https://${textValue}`;
-  });
-
-  currentCompanyOBJ.data.push({
-    name: name,
-    siteURL: url,
-    siteDataURL: currentURL,
-  });
-};
-
-//Data extraction
-
-const sortResults = (obj, dataLenght) => {
-  obj.dataLength = dataLenght;
-  obj.data.sort((a, b) => {
-    return a.name > b.name ? 1 : -1;
-  });
-  obj.data.sort((a, b) => {
-    if (a.siteURL === null) {
-      return 1;
-    } else if (b.siteURL === null) {
-      return -1;
-    }
-  });
-
-  return obj;
-};
-
-const processSubDocData = (pageLinks) => {
-  let companyData = { data: [], dataLength: 0 };
-  const limitResults = pageLinks.length; //default: pageLinks.length
-  return new Promise((resolve, reject) => {
-    for (let i = 0; i < limitResults; i++) {
-      axios
-        .get(pageLinks[i], { responseType: "arraybuffer" })
-        .then((resp) => {
-          console.log(i);
-          extractSubDocData(pageLinks[i], resp, companyData);
-
-          //Reached the last item => display results
-          if (companyData.data.length == limitResults) {
-            sortResults(companyData, limitResults);
-
-            console.log("Done");
-            resolve(companyData);
-          }
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    }
-  });
-};
-
-const writeFile = (fileName, data) => {
-  fs.writeFile(fileName, JSON.stringify(data), function (err) {
-    if (err) {
-      console.log(err);
-    }
-  });
-};
 
 module.exports = routes;
