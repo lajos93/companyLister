@@ -26,9 +26,20 @@ const readData = (fileName) => {
   return JSON.parse(fs.readFileSync(fileName));
 };
 
+//check items amount
+
+const foundItemsAmount = (response) => {
+  const $ = loadResponse(response);
+
+  let itemsNode = $(".box").first()[0].previousSibling.nodeValue;
+  const amount = parseInt(itemsNode.replace(/[^\d.-]/g, ""));
+
+  return amount;
+};
+
 //Data extraction
 
-const extractPageLinks = (response) => {
+const extractPageLinks = (response, foundItemsAmount, capitalizedReq) => {
   const $ = loadResponse(response);
 
   let pagination = [];
@@ -37,6 +48,17 @@ const extractPageLinks = (response) => {
     let paginationLinks = $(this).attr("href").replace(/http/g, "https");
     pagination.push(paginationLinks);
   });
+
+  let pagesToSearch = Math.floor(foundItemsAmount / 40);
+
+  if (pagesToSearch > pagination.length) {
+    for (let pag = pagination.length + 1; pag <= pagesToSearch; pag++) {
+      let linkURL = `https://www.szakkatalogus.hu/telepules/${encodeURI(
+        capitalizedReq
+      )}?lap=${pag}`;
+      pagination.push(linkURL);
+    }
+  }
 
   return pagination;
 };
@@ -145,4 +167,5 @@ module.exports = {
   isData: isData,
   setFilename: setFilename,
   readData: readData,
+  foundItemsAmount: foundItemsAmount,
 };
