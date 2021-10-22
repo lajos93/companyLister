@@ -5,12 +5,12 @@ const routes = express.Router();
 
 routes.get("/", (req, res) => {
   const url =
-    "https://www.szakkatalogus.hu/adat/STADLER_%C3%9CVEGCSISZOL%C3%93_%C3%89S_GRAV%C3%8DROZ%C3%93_M%C3%9BHELY-716961";
+    "https://www.szakkatalogus.hu/adat/B%C3%B6rcs%C3%B6k_Zolt%C3%A1n_ev-715428";
   const url2 =
-    "https://www.szakkatalogus.hu/adat/STADLER_%C3%9CVEGCSISZOL%C3%93_%C3%89S_GRAV%C3%8DROZ%C3%93_M%C5%B0HELY-716961";
+    "https://www.szakkatalogus.hu/adat/B%C3%B6rcs%C3%B6k_Zolt%C3%A1n_ev-715428";
 
   axios
-    .get(url2, { responseType: "arraybuffer" })
+    .get(url, { responseType: "arraybuffer" })
     .then(function (response) {
       //get page links
       console.log(response.data);
