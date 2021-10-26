@@ -61,7 +61,6 @@ routes.get("/:location", (req, res) => {
         //intervals between each iteration in sec, set a number that grows in proportion to the amount of requests sent
         //this amount can be divided by 10 to have it run faster in the beginning
         let timeInterval = Math.floor(foundItemsAmount / 120);
-        console.log(timeInterval);
 
         let i = 0;
         let p = 0;
