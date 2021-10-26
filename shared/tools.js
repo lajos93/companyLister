@@ -213,11 +213,21 @@ const writeFile = (fileName, data) => {
 
 //Aesthetics
 
-const contertSecToRemTime = (timeInSec) => {
-  const minutes = Math.floor(timeInSec / 60);
-  const seconds = timeInSec - minutes * 60;
-
-  return minutes + ":" + seconds;
+const convertSecToRemTime = (sec) => {
+  let hours = Math.floor(sec / 3600); // get hours
+  let minutes = Math.floor((sec - hours * 3600) / 60); // get minutes
+  let seconds = sec - hours * 3600 - minutes * 60; //  get seconds
+  // add 0 if value < 10; Example: 2 => 02
+  if (hours < 10) {
+    hours = "0" + hours;
+  }
+  if (minutes < 10) {
+    minutes = "0" + minutes;
+  }
+  if (seconds < 10) {
+    seconds = "0" + seconds;
+  }
+  return hours + ":" + minutes + ":" + seconds; // Return is HH : MM : SS
 };
 
 module.exports = {
@@ -237,5 +247,5 @@ module.exports = {
   sendRequestsInIntervals: sendRequestsInIntervals,
   handleData: handleData,
   handleSubDocData: handleSubDocData,
-  contertSecToRemTime: contertSecToRemTime,
+  convertSecToRemTime: convertSecToRemTime,
 };

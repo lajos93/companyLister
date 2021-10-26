@@ -40,7 +40,6 @@ routes.get("/:location", (req, res) => {
           foundItemsAmount,
           capitalizedReq
         );
-        const chunkSize = 4;
 
         let pageLinks = [];
 
@@ -52,28 +51,32 @@ routes.get("/:location", (req, res) => {
           pageLinks = tools.extractURLs(response);
         }
 
+        const chunkSize = 4;
+
         let paginationSlices = [];
         paginationSlices = tools.sliceArrayIntoSubArrays(pagination, chunkSize);
 
         let companyData = { data: [], length: 0 };
 
-        //intervals between each iteration in sec
-        let timeInterval = 10;
+        //intervals between each iteration in sec, set a number that grows in proportion to the amount of requests sent
+        //this amount can be divided by 10 to have it run faster in the beginning
+        let timeInterval = Math.floor(foundItemsAmount / 120);
+        console.log(timeInterval);
 
         let i = 0;
         let p = 0;
 
-        //get all links by mimicking user behaviour ( only send a request within a given timeinterval )
-
         console.log(
           "approx time required:",
-          tools.contertSecToRemTime(
-            (foundItemsAmount / (chunkSize * 10)) * timeInterval + 20
+          tools.convertSecToRemTime(
+            Math.floor((foundItemsAmount / (chunkSize * 10)) * timeInterval)
           )
         );
 
+        //get all links by mimicking user behaviour ( only send a request within a given timeinterval )
+
         tools
-          .sendRequestsInIntervals(paginationSlices, timeInterval)
+          .sendRequestsInIntervals(paginationSlices, timeInterval / 10)
           .subscribe((resp) => {
             i++;
 
