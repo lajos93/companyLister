@@ -72,8 +72,7 @@ routes.get("/:location", (req, res) => {
           )
         );
 
-        //get all links by mimicking user behaviour ( only send a request within a given timeinterval )
-
+        //get all links by mimicking user behaviour ( only send requests within a given timeinterval )
         tools
           .sendRequestsInIntervals(paginationSlices, timeInterval / 10)
           .subscribe((resp) => {

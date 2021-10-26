@@ -106,6 +106,9 @@ const extractSubDocData = (response) => {
   let name = $("h1").first().text();
   let url = null;
   let keyWords = [];
+  let postalCode;
+  let city;
+  let street;
 
   $(".l").filter(function () {
     let elLabel = $(this);
@@ -114,15 +117,29 @@ const extractSubDocData = (response) => {
     let labelValue = elLabel.text();
     let textValue = elData.text();
 
+    let hasAddress = labelValue.includes("Cím");
     let haskeyWords = labelValue.includes("Kulcsszavak");
     let hasUrl = labelValue.includes("Honlap");
 
+    if (hasAddress) {
+      let [postalVal, cityVal, ...addressVal] =
+        textValue.split(/(?=[A-ZÁÉÜŰÚŐÖÓÍ])/);
+
+      postalCode = postalVal.trim();
+      city = cityVal.trim();
+      street = addressVal.join("").trim();
+    }
     if (haskeyWords) keyWords = textValue.split(/[ ,]+/);
     if (hasUrl) url = `https://${textValue}`;
   });
 
   currentCompanyOBJ = {
     name: name,
+    address: {
+      postalCode: postalCode,
+      city: city,
+      street: street,
+    },
     siteURL: url,
     keyWords: keyWords,
     siteDataURL: siteDataURL,
