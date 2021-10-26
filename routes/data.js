@@ -5,10 +5,12 @@ const routes = express.Router();
 
 const tools = require("./../shared/tools");
 const helpers = require("./../shared/helpers");
+const { map } = require("rxjs");
 
 routes.get("/", (req, res) => {
   const status = 404;
-  res.status(status).json({ error: "No search parameters", CODE: status });
+  const message = helpers.errorHelper(status);
+  res.status(status).json({ error: message, CODE: status });
 });
 
 routes.get("/:location", (req, res) => {
@@ -32,71 +34,91 @@ routes.get("/:location", (req, res) => {
         let foundItemsAmount;
         foundItemsAmount = tools.foundItemsAmount(response);
 
-        //get page links
+        //get pagination links
         let pagination = [];
         pagination = tools.extractPageLinks(
           response,
           foundItemsAmount,
           capitalizedReq
         );
+        const paginationLinks = pagination.length;
 
-        const paginationLimit = pagination.slice(0, 9);
-        console.log(paginationLimit);
+        const chunkSize = 4;
+
+        let paginationSlices = [];
+        paginationSlices = tools.sliceArrayIntoSubArrays(pagination, chunkSize);
+
+        //limit paginationLinks to not go above 6x40(240) additional requests
+        const paginationLimit = pagination;
 
         //define section links array
         let pageLinks = [];
         pageLinks = tools.extractURLs(response);
 
-        //index array to check on the last item in the async for loop
-        let indexes = [];
+        let companyData = { data: [], length: 0 };
 
-        //run through the remaining pages
-        if (pagination.length > 0) {
-          for (let p = 0; p < paginationLimit.length; p++) {
-            axios
-              .get(pagination[p], { responseType: "arraybuffer" })
-              .then((paginationResp) => {
-                //get section values
+        //intervals between each iteration in sec
+        let timeInterval = 3;
 
-                let updatedPageLinks = tools.extractURLs(paginationResp);
-                pageLinks = [...pageLinks, ...updatedPageLinks];
+        let i = 0;
+        let p = 0;
 
-                indexes.push(p);
+        //get all links by mimicking user behaviour ( only send a request within a given timeinterval )
 
-                if (indexes.length == paginationLimit.length) {
-                  tools
-                    .processSubDocData(pageLinks)
-                    .then((finalRes) => {
-                      tools.writeFile(fileName, finalRes);
-                      res.json(finalRes);
-                    })
-                    .catch((error) => {
-                      console.log(error);
-                    });
-                }
-              })
-              .catch((error) => {
-                console.log(error);
-              });
-          }
-        } else {
-          tools
-            .processSubDocData(pageLinks)
-            .then((finalRes) => {
-              tools.writeFile(fileName, finalRes);
-              res.json(finalRes);
-            })
-            .catch((error) => {
-              console.log(error);
-            });
-        }
+        tools
+          .sendRequestsInIntervals(paginationSlices, timeInterval)
+          .subscribe((resp) => {
+            i++;
+            console.log("current pagination:", i + "/" + pagination.length);
+
+            pageLinks = tools.handleData(resp, pageLinks);
+
+            const lastIteration = pagination.length == i;
+            if (lastIteration) {
+              console.log(`pagination is searched, now extracting data`);
+
+              let pagesSlices = [];
+              pagesSlices = tools.sliceArrayIntoSubArrays(
+                pageLinks,
+                chunkSize * 10
+              );
+
+              tools
+                .sendRequestsInIntervals(pagesSlices, timeInterval)
+                .subscribe((resp) => {
+                  p++;
+                  console.log(
+                    "remaining pages to search:",
+                    pageLinks.length - p
+                  );
+                  companyData.data = tools.handleSubDocData(resp, companyData);
+
+                  const lastIterationSubDoc = pageLinks.length == p;
+                  if (lastIterationSubDoc) {
+                    console.log("done");
+                    companyData.length = p;
+
+                    companyData = tools.sortResults(
+                      companyData,
+                      pageLinks.length
+                    );
+                    tools.writeFile(fileName, companyData);
+                    res.json(companyData);
+                  }
+                });
+            }
+          });
       })
       .catch((error) => {
-        const status = error.response.status;
-        const message = helpers.errorHelper(status);
-        if (status) {
-          res.status(status).json({ error: message, CODE: status });
+        const response = error.response;
+        if (response) {
+          const status = response.status;
+          const message = helpers.errorHelper(status);
+          if (status) {
+            res.status(status).json({ error: message, CODE: status });
+          }
         }
+        console.log(error);
       });
   }
 });
