@@ -5,7 +5,6 @@ const routes = express.Router();
 
 const tools = require("./../shared/tools");
 const helpers = require("./../shared/helpers");
-const { map } = require("rxjs");
 
 routes.get("/", (req, res) => {
   const status = 404;
@@ -41,34 +40,43 @@ routes.get("/:location", (req, res) => {
           foundItemsAmount,
           capitalizedReq
         );
-        const paginationLinks = pagination.length;
-
         const chunkSize = 4;
+
+        let pageLinks = [];
+
+        //if results are less than one page, fetch the data starting in tools.sendRequestsInIntervals()....
+        if (pagination.length < 1) {
+          pagination = [tools.loadURL(response)];
+        } else {
+          //else load the first page's data then continue fetching the rest
+          pageLinks = tools.extractURLs(response);
+        }
 
         let paginationSlices = [];
         paginationSlices = tools.sliceArrayIntoSubArrays(pagination, chunkSize);
 
-        //limit paginationLinks to not go above 6x40(240) additional requests
-        const paginationLimit = pagination;
-
-        //define section links array
-        let pageLinks = [];
-        pageLinks = tools.extractURLs(response);
-
         let companyData = { data: [], length: 0 };
 
         //intervals between each iteration in sec
-        let timeInterval = 3;
+        let timeInterval = 10;
 
         let i = 0;
         let p = 0;
 
         //get all links by mimicking user behaviour ( only send a request within a given timeinterval )
 
+        console.log(
+          "approx time required:",
+          tools.contertSecToRemTime(
+            (foundItemsAmount / (chunkSize * 10)) * timeInterval + 20
+          )
+        );
+
         tools
           .sendRequestsInIntervals(paginationSlices, timeInterval)
           .subscribe((resp) => {
             i++;
+
             console.log("current pagination:", i + "/" + pagination.length);
 
             pageLinks = tools.handleData(resp, pageLinks);

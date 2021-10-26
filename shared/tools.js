@@ -105,18 +105,26 @@ const extractSubDocData = (response) => {
 
   let name = $("h1").first().text();
   let url = null;
+  let keyWords = [];
 
   $(".l").filter(function () {
-    let el = $(this).next();
-    let textValue = el.text();
-    let hasUrl = textValue.includes(".hu");
+    let elLabel = $(this);
+    let elData = elLabel.next();
 
+    let labelValue = elLabel.text();
+    let textValue = elData.text();
+
+    let haskeyWords = labelValue.includes("Kulcsszavak");
+    let hasUrl = labelValue.includes("Honlap");
+
+    if (haskeyWords) keyWords = textValue.split(/[ ,]+/);
     if (hasUrl) url = `https://${textValue}`;
   });
 
   currentCompanyOBJ = {
     name: name,
     siteURL: url,
+    keyWords: keyWords,
     siteDataURL: siteDataURL,
   };
 
@@ -126,7 +134,7 @@ const extractSubDocData = (response) => {
 //Data extraction
 
 const sortResults = (obj, dataLenght) => {
-  obj.dataLength = dataLenght;
+  obj.length = dataLenght;
   obj.data.sort((a, b) => {
     return a.name > b.name ? 1 : -1;
   });
@@ -139,84 +147,6 @@ const sortResults = (obj, dataLenght) => {
   });
 
   return obj;
-};
-
-const processSubDocData = (pageLinks, timeInterval) => {
-  let companyData = { data: [], dataLength: 0 };
-  const pagelinksLength = pageLinks.length; //default: pageLinks.length
-
-  return new Promise((resolve, reject) => {
-    (function (i) {
-      setTimeout(function () {
-        for (let i = 0; i < pagelinksLength; i++) {
-          axios
-            .get(pageLinks[i], { responseType: "arraybuffer" })
-            .then((resp) => {
-              console.log(i);
-              extractSubDocData(pageLinks[i], resp, companyData);
-
-              //Reached the last item => display results
-              if (companyData.data.length == pagelinksLength) {
-                sortResults(companyData, pagelinksLength);
-
-                console.log("Done");
-                resolve(companyData);
-              }
-            })
-            .catch((error) => {
-              reject(error);
-            });
-        }
-      }, timeInterval * 1000 * i);
-    })(i);
-  });
-};
-
-const getAllLinksUserBehavMimicked = (
-  paginationSubArrays,
-  timeInterval,
-  allPaginationLinks,
-  pageLinks
-) => {
-  //temp array to keep track of the already looped links (asynch request in a for loop)
-  let indexes = [];
-
-  return new Promise((resolve, reject) => {
-    for (var i = 0; i < paginationSubArrays.length; i++) {
-      (function (i) {
-        setTimeout(function () {
-          for (let p = 0; p < paginationSubArrays[i].length; p++) {
-            axios
-              .get(paginationSubArrays[i][p], {
-                responseType: "arraybuffer",
-              })
-              .then((paginationResp) => {
-                //get section values
-
-                let updatedPageLinks = extractURLs(paginationResp);
-                pageLinks = [...pageLinks, ...updatedPageLinks];
-
-                indexes.push(p);
-
-                //get remaining pages
-                let remainingPages = allPaginationLinks - indexes.length;
-                console.log(remainingPages);
-
-                const lastIteration = indexes.length == allPaginationLinks;
-
-                //last iteration of the "paginated pages" = all the pageLinks are extracted
-                if (lastIteration) {
-                  resolve(pageLinks);
-                }
-              })
-              .catch((error) => {
-                reject(error);
-              });
-          }
-        }, timeInterval * 1000 * i);
-      })(i);
-    }
-  });
 };
 
 const sendRequestsInIntervals = (dataChunks, timeInterval) => {
@@ -273,27 +203,6 @@ const handleSubDocData = (response, companyData) => {
   return companyData.data;
 };
 
-const prepareDataForExtraction = (response, pageLinks, paginationLinks, i) => {
-  //get section values
-
-  let updatedPageLinks = extractURLs(response);
-  pageLinks = [...pageLinks, ...updatedPageLinks];
-
-  console.log(pageLinks.length, paginationLinks);
-
-  //get remaining pages
-  let remainingPages = paginationLinks - i;
-  //console.log(remainingPages);
-
-  const lastIteration = i == paginationLinks;
-
-  //last iteration of the "paginated pages" = all the pageLinks are extracted
-  if (lastIteration) {
-    //console.log(pageLinks.length);
-    return pageLinks;
-  }
-};
-
 const writeFile = (fileName, data) => {
   fs.writeFile(fileName, JSON.stringify(data), function (err) {
     if (err) {
@@ -302,23 +211,31 @@ const writeFile = (fileName, data) => {
   });
 };
 
+//Aesthetics
+
+const contertSecToRemTime = (timeInSec) => {
+  const minutes = Math.floor(timeInSec / 60);
+  const seconds = timeInSec - minutes * 60;
+
+  return minutes + ":" + seconds;
+};
+
 module.exports = {
   loadResponse: loadResponse,
+  loadURL: loadURL,
   sliceArrayIntoSubArrays: sliceArrayIntoSubArrays,
   extractPageLinks: extractPageLinks,
   extractURLs: extractURLs,
   extractSubDocData: extractSubDocData,
   sortResults: sortResults,
-  processSubDocData: processSubDocData,
   writeFile: writeFile,
   capitalizeReq: capitalizeReq,
   isData: isData,
   setFilename: setFilename,
   readData: readData,
   foundItemsAmount: foundItemsAmount,
-  getAllLinksUserBehavMimicked: getAllLinksUserBehavMimicked,
   sendRequestsInIntervals: sendRequestsInIntervals,
-  prepareDataForExtraction: prepareDataForExtraction,
   handleData: handleData,
   handleSubDocData: handleSubDocData,
+  contertSecToRemTime: contertSecToRemTime,
 };
