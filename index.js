@@ -10,6 +10,7 @@ app.use(express.json());
 const data = require("./routes/data");
 app.use("/search/", data);
 
+//error handling
 app.use((req, res, next) => {
   next(error.notFound());
 });

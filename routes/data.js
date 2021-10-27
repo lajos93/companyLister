@@ -9,7 +9,7 @@ routes.get("/:location", (req, res, next) => {
   const request = req.params.location;
   const capitalizedReq = tools.capitalizeReq(request);
 
-  Company.find({ name: capitalizedReq }, function (err, result) {
+  Company.find({ name: capitalizedReq }, (err, result) => {
     if (result.length > 0) {
       res.json(result);
     }

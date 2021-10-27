@@ -1,6 +1,5 @@
 const axios = require("axios");
 const tools = require("./tools");
-const helpers = require("./error");
 
 const Company = require("../models/company");
 
