@@ -23,6 +23,7 @@
     "express": "^4.17.1",
     "fs": "0.0.1-security",
     "https": "^1.0.0",
+    "mongoose": "^6.0.12",
     "nodemon": "^2.0.13",
     "rxjs": "^7.4.0"
   }
