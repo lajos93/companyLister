@@ -2,8 +2,7 @@ const axios = require("axios");
 const tools = require("./tools");
 
 const Company = require("../models/company");
-
-//data.js
+const { toArray, mergeMap } = require("rxjs/operators");
 
 const fetchData = (request) => {
   mainSiteLink = `https://www.szakkatalogus.hu/telepules/${encodeURI(
@@ -48,6 +47,7 @@ const fetchData = (request) => {
 
         let i = 0;
         let p = 0;
+        let h = 0;
 
         console.log(
           "approx time required:",
@@ -56,19 +56,19 @@ const fetchData = (request) => {
           )
         );
 
-        //get all links by mimicking user behaviour ( only send requests within a given timeinterval )
         tools
-          .sendRequestsInIntervals(paginationSlices, timeInterval / 10)
-          .subscribe((resp) => {
-            i++;
-
-            console.log("current pagination:", i + "/" + pagination.length);
-
-            pageLinks = tools.handleData(resp, pageLinks);
-
-            const lastIteration = pagination.length == i;
-            if (lastIteration) {
-              console.log(`pagination is searched, now extracting data`);
+          .sendRequestsInIntervals(
+            paginationSlices,
+            pagination.length,
+            timeInterval / 10
+          )
+          .pipe(
+            toArray(),
+            mergeMap((res) => {
+              res.map((item) => {
+                const itemData = item[0];
+                pageLinks = tools.handleData(itemData, pageLinks);
+              });
 
               let pagesSlices = [];
               pagesSlices = tools.sliceArrayIntoSubArrays(
@@ -76,38 +76,50 @@ const fetchData = (request) => {
                 chunkSize * 10
               );
 
-              tools
-                .sendRequestsInIntervals(pagesSlices, timeInterval)
-                .subscribe((resp) => {
-                  p++;
-                  console.log(
-                    "remaining pages to search:",
-                    pageLinks.length - p
-                  );
-                  companyData.data = tools.handleSubDocData(resp, companyData);
-
-                  const lastIterationSubDoc = pageLinks.length == p;
-                  if (lastIterationSubDoc) {
-                    console.log("done");
-                    companyData.length = p;
-
-                    companyData = tools.sortResults(
-                      companyData,
+              console.log(`pagination is done, now extracting data`);
+              // console.log("va;", pagination);
+              return tools
+                .sendRequestsInIntervals(
+                  pagesSlices,
+                  pageLinks.length,
+                  timeInterval,
+                  false
+                )
+                .pipe(
+                  mergeMap((res) => {
+                    const itemData = res[0];
+                    const i = res[1];
+                    return tools.handleSubDocData(
+                      itemData,
+                      i,
                       pageLinks.length
                     );
+                  })
+                );
+            }),
+            toArray()
+          )
+          .subscribe({
+            next(companyDataItemsArray) {
+              companyDataLength = companyDataItemsArray.length;
+              companyData = tools.sortResults(companyDataItemsArray);
 
-                    const company = new Company({
-                      name: request,
-                      data: companyData.data,
-                      length: companyData.length,
-                    });
+              const company = new Company({
+                name: request,
+                data: companyData,
+                length: companyDataLength,
+              });
 
-                    company.save().then((result) => {
-                      resolve(result);
-                    });
-                  }
-                });
-            }
+              company.save().then((result) => {
+                resolve(result);
+              });
+            },
+            error(err) {
+              console.error("something wrong occurred: " + err);
+            },
+            complete() {
+              console.log("done");
+            },
           });
       })
       .catch((error) => {

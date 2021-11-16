@@ -3,14 +3,16 @@ const mongoose = require("mongoose");
 const db = require("./db/db");
 const error = require("./shared/error");
 
-const app = express();
+const cors = require("cors");
 
+const app = express();
+app.use(cors());
 app.use(express.json());
 
 const data = require("./routes/data");
 app.use("/search/", data);
 
-//error handling
+/* //error handling
 app.use((req, res, next) => {
   next(error.notFound());
 });
@@ -18,7 +20,7 @@ app.use((req, res, next) => {
 app.use((err, req, res, next) => {
   const resp = error.response(err);
   res.status(resp.error.status).json(resp);
-});
+}); */
 
 const port = 3001;
 

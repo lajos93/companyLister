@@ -1,6 +1,7 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 const fs = require("fs");
+const mapBox = require("./mapBoxKey");
 const { Observable } = require("rxjs");
 
 const loadResponse = (response) => {
@@ -97,6 +98,16 @@ const extractURLs = (response) => {
   return pages;
 };
 
+const replaceUnknownChars = (string) => {
+  const updatedString = string
+    .replace(/û/g, "ű")
+    .replace(/õ/g, "ő")
+    .replace(/õ/g, "ő")
+    .replace(/û/g, "ű");
+
+  return updatedString;
+};
+
 const extractSubDocData = (response) => {
   const $ = loadResponse(response);
   const siteDataURL = loadURL(response);
@@ -126,8 +137,8 @@ const extractSubDocData = (response) => {
         textValue.split(/(?=[A-ZÁÉÜŰÚŐÖÓÍ])/);
 
       postalCode = postalVal.trim();
-      city = cityVal.trim();
-      street = addressVal.join("").trim();
+      city = replaceUnknownChars(cityVal.trim());
+      street = replaceUnknownChars(addressVal.join("").trim());
     }
     if (haskeyWords) keyWords = textValue.split(/[ ,]+/);
     if (hasUrl) url = `https://${textValue}`;
@@ -150,12 +161,11 @@ const extractSubDocData = (response) => {
 
 //Data extraction
 
-const sortResults = (obj, dataLenght) => {
-  obj.length = dataLenght;
-  obj.data.sort((a, b) => {
+const sortResults = (obj) => {
+  obj.sort((a, b) => {
     return a.name > b.name ? 1 : -1;
   });
-  obj.data.sort((a, b) => {
+  obj.sort((a, b) => {
     if (a.siteURL === null) {
       return 1;
     } else if (b.siteURL === null) {
@@ -166,7 +176,15 @@ const sortResults = (obj, dataLenght) => {
   return obj;
 };
 
-const sendRequestsInIntervals = (dataChunks, timeInterval) => {
+const sendRequestsInIntervals = (
+  dataChunks,
+  dataLength,
+  timeInterval,
+  log = true
+) => {
+  let dataIteration = 0;
+  let array = [];
+
   return new Observable((observer) => {
     for (var i = 0; i < dataChunks.length; i++) {
       (function (i) {
@@ -174,7 +192,13 @@ const sendRequestsInIntervals = (dataChunks, timeInterval) => {
           for (let p = 0; p < dataChunks[i].length; p++) {
             getRequest(dataChunks[i][p])
               .then((result) => {
-                observer.next(result);
+                dataIteration++;
+                if (log == true) logRequest(dataIteration, dataLength);
+                observer.next([result, dataIteration, array]);
+
+                if (dataIteration == dataLength) {
+                  observer.complete();
+                }
               })
               .catch((error) => {
                 observer.error(error);
@@ -203,21 +227,59 @@ const getRequest = (url) => {
 
 const handleData = (response, pageLinks) => {
   //get section values
-
   let updatedPageLinks = extractURLs(response);
   pageLinks = [...pageLinks, ...updatedPageLinks];
 
   return pageLinks;
 };
 
-const handleSubDocData = (response, companyData) => {
-  //get section values
+const handleSubDocData = (response, dataIteration, dataLength) => {
+  //get sub section values
+  let companyData = extractSubDocData(response);
 
-  let updatedCompanyData = extractSubDocData(response);
+  return subDocGetLatLongt(companyData, dataIteration, dataLength);
+};
 
-  companyData.data = [...companyData.data, updatedCompanyData];
+const subDocGetLatLongt = (companyData, dataIteration, dataLength) => {
+  // streetNameOnly as the mapbox has can only confidently find it this way
+  let streetNameOnly = companyData.address.street.replace(/[0-9.]/g, "").trim();
+  let cityName = companyData.address.city;
+  let encodedSearchString = encodeURIComponent(
+    `${cityName}, ${streetNameOnly}`
+  );
+  let getLatLongtLink = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedSearchString}.json?country=hu&limit=1&language=en-US&access_token=${mapBox.mapBoxKey()}`;
 
-  return companyData.data;
+  //handle getting lat longt
+  return new Observable((observer) => {
+    axios
+      .get(getLatLongtLink)
+      .then((res) => {
+        if (res.data.features.length > 0) {
+          const longt = res.data.features[0].center[0];
+          const lat = res.data.features[0].center[1];
+          const foundCityName =
+            res.data.features[0].place_name.split(/[ ,]+/)[0];
+
+          //if results are accurate
+          if (foundCityName == cityName) {
+            companyData.address.raw = {};
+            companyData.address.raw.longt = longt;
+            companyData.address.raw.lat = lat;
+          }
+        }
+
+        logRequest(dataIteration, dataLength);
+
+        observer.next(companyData);
+
+        if ((dataIteration = dataLength)) {
+          observer.complete();
+        }
+      })
+      .catch((err) => {
+        observer.error(err);
+      });
+  });
 };
 
 const writeFile = (fileName, data) => {
@@ -244,7 +306,11 @@ const convertSecToRemTime = (sec) => {
   if (seconds < 10) {
     seconds = "0" + seconds;
   }
-  return hours + ":" + minutes + ":" + seconds; // Return is HH : MM : SS
+  return hours + ":" + minutes + ":" + seconds;
+};
+
+const logRequest = (i, array) => {
+  console.log(i, "/" + array);
 };
 
 module.exports = {

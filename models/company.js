@@ -6,7 +6,12 @@ const company = new Schema({
   data: [
     {
       name: String,
-      address: { postalCode: String, city: String, street: String },
+      address: {
+        postalCode: String,
+        city: String,
+        street: String,
+        raw: { longt: Number, lat: Number },
+      },
       siteURL: String,
       keyWords: [String],
       siteDataURL: String,
