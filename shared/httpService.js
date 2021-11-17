@@ -66,7 +66,7 @@ const fetchData = (request) => {
             toArray(),
             mergeMap((res) => {
               res.map((item) => {
-                const itemData = item[0];
+                const itemData = item;
                 pageLinks = tools.handleData(itemData, pageLinks);
               });
 
@@ -78,6 +78,9 @@ const fetchData = (request) => {
 
               console.log(`pagination is done, now extracting data`);
               // console.log("va;", pagination);
+
+              let trackItems = [];
+
               return tools
                 .sendRequestsInIntervals(
                   pagesSlices,
@@ -87,12 +90,12 @@ const fetchData = (request) => {
                 )
                 .pipe(
                   mergeMap((res) => {
-                    const itemData = res[0];
-                    const i = res[1];
+                    const itemData = res;
+
                     return tools.handleSubDocData(
                       itemData,
-                      i,
-                      pageLinks.length
+                      pageLinks.length,
+                      trackItems
                     );
                   })
                 );

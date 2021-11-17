@@ -183,7 +183,6 @@ const sendRequestsInIntervals = (
   log = true
 ) => {
   let dataIteration = 0;
-  let array = [];
 
   return new Observable((observer) => {
     for (var i = 0; i < dataChunks.length; i++) {
@@ -194,7 +193,7 @@ const sendRequestsInIntervals = (
               .then((result) => {
                 dataIteration++;
                 if (log == true) logRequest(dataIteration, dataLength);
-                observer.next([result, dataIteration, array]);
+                observer.next(result);
 
                 if (dataIteration == dataLength) {
                   observer.complete();
@@ -233,16 +232,19 @@ const handleData = (response, pageLinks) => {
   return pageLinks;
 };
 
-const handleSubDocData = (response, dataIteration, dataLength) => {
+const handleSubDocData = (response, dataLength, trackItems) => {
   //get sub section values
   let companyData = extractSubDocData(response);
 
-  return subDocGetLatLongt(companyData, dataIteration, dataLength);
+  return subDocGetLatLongt(companyData, dataLength, trackItems);
 };
 
-const subDocGetLatLongt = (companyData, dataIteration, dataLength) => {
+const subDocGetLatLongt = (companyData, dataLength, trackItems) => {
   // streetNameOnly as the mapbox has can only confidently find it this way
-  let streetNameOnly = companyData.address.street.replace(/[0-9.]/g, "").trim();
+
+  let streetNameOnly =
+    companyData.address.street &&
+    companyData.address.street.replace(/[0-9.]/g, "").trim();
   let cityName = companyData.address.city;
   let encodedSearchString = encodeURIComponent(
     `${cityName}, ${streetNameOnly}`
@@ -267,14 +269,11 @@ const subDocGetLatLongt = (companyData, dataIteration, dataLength) => {
             companyData.address.raw.lat = lat;
           }
         }
-
-        logRequest(dataIteration, dataLength);
+        trackItems.push("i");
+        logRequest(trackItems.length, dataLength);
 
         observer.next(companyData);
-
-        if ((dataIteration = dataLength)) {
-          observer.complete();
-        }
+        observer.complete();
       })
       .catch((err) => {
         observer.error(err);
