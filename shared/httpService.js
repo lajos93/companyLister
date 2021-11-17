@@ -34,6 +34,7 @@ const fetchData = (request) => {
           pageLinks = tools.extractURLs(response);
         }
 
+        //put 4 items into one chunk which will be iterated over with time intervals
         const chunkSize = 4;
 
         let paginationSlices = [];
@@ -42,12 +43,8 @@ const fetchData = (request) => {
         let companyData = { data: [], length: 0 };
 
         //intervals between each iteration in sec, set a number that grows in proportion to the amount of requests sent
-        //this amount can be divided by 10 to have it run faster in the beginning
+        //this amount can be divided by 10 to have it run faster in the beginning, until there's less load on the server
         let timeInterval = Math.floor(foundItemsAmount / 120);
-
-        let i = 0;
-        let p = 0;
-        let h = 0;
 
         console.log(
           "approx time required:",
@@ -77,7 +74,6 @@ const fetchData = (request) => {
               );
 
               console.log(`pagination is done, now extracting data`);
-              // console.log("va;", pagination);
 
               let trackItems = [];
 
@@ -118,7 +114,7 @@ const fetchData = (request) => {
               });
             },
             error(err) {
-              console.error("something wrong occurred: " + err);
+              reject(err);
             },
             complete() {
               console.log("done");
